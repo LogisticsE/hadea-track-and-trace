@@ -1,0 +1,21 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*"]
+  },
+  "routes": [
+    {
+      "route": "/index.html",
+      "rewrite": "/dashboard.html"
+    },
+    {
+      "route": "/",
+      "rewrite": "/login.html"
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/login.html"
+    }
+  }
+}

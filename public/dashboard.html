@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track-and-Trace – Power BI</title>
+    <script src="https://cdn.jsdelivr.net/npm/powerbi-client@2.21.0/dist/powerbi.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .report-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .report-wrapper { width: 100%; max-width: 1140px; }
+        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        #reportContainer { width: 100%; height: 80vh; border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border-radius: 8px; background: white; }
+        .loading { text-align: center; padding: 50px; color: #666; }
+        .error { text-align: center; padding: 50px; color: #d32f2f; }
+        @media (max-width: 768px) { #reportContainer { height: 70vh; } }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <div class="report-wrapper">
+            <div class="report-header">
+                <h3>Power BI Report</h3>
+                <a href="#" onclick="logout()" style="font-size:13px;color:#666;text-decoration:none;border:1px solid #ccc;padding:6px 14px;border-radius:6px;">Sign out</a>
+            </div>
+            <div id="reportContainer">
+                <div class="loading">Loading report...</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const token = sessionStorage.getItem('auth_token');
+        if (!token) { window.location.href = '/login.html'; }
+
+        function logout() {
+            sessionStorage.removeItem('auth_token');
+            window.location.href = '/login.html';
+        }
+
+        async function embedReport() {
+            try {
+                const response = await fetch('/api/embed-info', {
+                    headers: { 'X-Auth-Token': token },
+                    redirect: 'manual'
+                });
+                console.log('embed-info status:', response.status, response.type);
+                if (response.status === 401) {
+                    throw new Error('Session expired (401). Please sign in again.');
+                }
+                if (response.type === 'opaqueredirect') {
+                    throw new Error('API was redirected (SWA config issue). Status: ' + response.status);
+                }
+                const text = await response.text();
+                console.log('embed-info body:', text.substring(0, 200));
+                let embedInfo;
+                try { embedInfo = JSON.parse(text); } catch (_) {
+                    throw new Error('API returned status ' + response.status + ': ' + (text.substring(0, 200) || '(empty body)'));
+                }
+                if (embedInfo.error) throw new Error(embedInfo.error);
+
+                if (typeof powerbi === 'undefined') throw new Error('Power BI library not loaded');
+
+                const models = window['powerbi-client'].models;
+                const config = {
+                    type: 'report',
+                    tokenType: models.TokenType.Embed,
+                    accessToken: embedInfo.embedToken,
+                    embedUrl: embedInfo.embedUrl,
+                    id: embedInfo.reportId,
+                    permissions: models.Permissions.Read,
+                    settings: {
+                        panes: { filters: { expanded: false, visible: false } },
+                        background: models.BackgroundType.Transparent
+                    }
+                };
+                const container = document.getElementById('reportContainer');
+                const report = powerbi.embed(container, config);
+                report.on('loaded', () => console.log('Report loaded'));
+                report.on('error', (event) => {
+                    console.error('Report error:', event.detail);
+                    container.innerHTML = '<div class="error">Error loading report.</div>';
+                });
+            } catch (error) {
+                console.error('Error embedding report:', error);
+                document.getElementById('reportContainer').innerHTML =
+                    '<div class="error">Failed to load report: ' + error.message + '</div>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', embedReport);
+    </script>
+</body>
+</html>

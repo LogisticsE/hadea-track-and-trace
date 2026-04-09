@@ -13,8 +13,15 @@ __pycache__/
 venv/
 env/
 
-# Vercel
-.vercel/
+# Azure Functions local settings
+api/local.settings.json
+
+# Bundled Python packages (deployed separately)
+api/.python_packages/
+
+# SWA CLI artifacts
+.swa-event.json
+manual-deploy-swa-oryx/
 
 # OS
 .DS_Store
